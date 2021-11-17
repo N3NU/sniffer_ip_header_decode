@@ -4,11 +4,11 @@ import socket
 import struct
 import sys
 
-class IP:
-    def __init__(self, buff=None)
+class IP:   #we include out IP class definition which defines a Python structure that will map the first 20 bytes of the received buffer into a friendly IP header
+    def __init__(self, buff=None):
         header = struct.unpack('<BBHHHBBH4s4s', buff)
         self.ver = header[0] >> 4
-        self.ihl = header[0] 0xF
+        self.ihl = header[0] & 0xF
 
         self.tos = header[1]
         self.len = header[2]
@@ -31,37 +31,37 @@ class IP:
             print('%s No protocol for %s' % (e, self.protocol_num))
             self.protocol = str(self.protocol_num)
     
-    def sniff(host):
-        #should look familiar from previous example
-        if os.name == 'nt':
-            socket_protocol = socket.IPPROTO_IP
-        else:
-            socket_protocol = socket.IPPROTO_ICMP
-        
-        sniffer = socket.socket(socket.AF_INET,
-                                socket.SOCK_RAW, socket_protocol)
-        sniffer.bind((host, 0))
-        sniffer.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+def sniff(host):
+    #should look familiar from previous example
+    if os.name == 'nt':
+        socket_protocol = socket.IPPROTO_IP
+    else:
+        socket_protocol = socket.IPPROTO_ICMP
+    
+    sniffer = socket.socket(socket.AF_INET,
+                            socket.SOCK_RAW, socket_protocol)
+    sniffer.bind((host, 0))
+    sniffer.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
 
+    if os.name == 'nt':
+        sniffer.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
+    
+    try:
+        while True:
+            #read a packet
+            raw_buffer = sniffer.recvfrom(65535)[0]
+            #create an IP header from the first 20 bytes
+            ip_header = IP(raw_buffer[0:20])
+            #print the detected protocol and hosts
+            print('Protocol: %s %s -> %s' % (ip_header.protocol,
+                                                ip_header.src_address,
+                                                ip_header.dst_address))
+    
+    except KeyboardInterrupt:
+        #if we're on Windows, turn off promiscuous mode
         if os.name == 'nt':
-            sniffer.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
-        
-        try:
-            while True:
-                #read a packet
-                raw_buffer = sniffer.recvfrom(65535)[0]
-                #create an IP header from the first 20 bytes
-                ip_header = IP(raw_buffer[o:20])
-                #print the detected protocol and hosts
-                print('Protocol: %s %s -> %s' % (ip_header.protocol,
-                                                    ip_header.src_address,
-                                                    ip_header.dst_address))
-        
-        except KeyboardInterrupt:
-            #if we're on Windows, turn off promiscuous mode
-            if os.name == 'nt':
-                sniffer.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
-            sys.exit()
+            sniffer.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
+        sys.exit()
 
 #####main block
 if __name__ == '__main__':
